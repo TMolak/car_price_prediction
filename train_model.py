@@ -10,9 +10,9 @@ from sklearn.model_selection import train_test_split
 
 
 def main(
-    data_path: str = "data/Car_sale_ads_cleaned_v2.csv",
-    model_dir: str = "models",
-    target: str = "Price",
+        data_path: str = "data/Car_sale_ads_cleaned_v2.csv",
+        model_dir: str = "models",
+        target: str = "Price",
 ):
     df = pd.read_csv(data_path)
 
@@ -82,6 +82,33 @@ def main(
     print("\nTop 20 najważniejszych cech:")
     print(fi_df.head(20).to_string(index=False))
 
+    # ===== METADATA dla UI (żeby app.py nie potrzebował CSV) =====
+    def safe_unique(col):
+        if col in df.columns:
+            return sorted(df[col].dropna().astype(str).unique().tolist())
+        return []
+
+    ui_metadata = {
+        "cat_options": {c: safe_unique(c) for c in cat_cols},
+        "num_stats": {},
+        "brand_to_models": {},
+    }
+
+    for c in num_cols:
+        s = pd.to_numeric(df[c], errors="coerce")
+        ui_metadata["num_stats"][c] = {
+            "min": float(s.min()) if s.notna().any() else 0.0,
+            "max": float(s.max()) if s.notna().any() else 0.0,
+            "median": float(s.median()) if s.notna().any() else 0.0,
+        }
+
+    if "Vehicle_brand" in df.columns and "Vehicle_model" in df.columns:
+        tmp = df[["Vehicle_brand", "Vehicle_model"]].dropna().copy()
+        tmp["Vehicle_brand"] = tmp["Vehicle_brand"].astype(str)
+        tmp["Vehicle_model"] = tmp["Vehicle_model"].astype(str)
+        brand_map = tmp.groupby("Vehicle_brand")["Vehicle_model"].unique().to_dict()
+        ui_metadata["brand_to_models"] = {k: sorted(list(v)) for k, v in brand_map.items()}
+
     # ===== ZAPIS (joblib) =====
     Path(model_dir).mkdir(parents=True, exist_ok=True)
 
@@ -102,6 +129,9 @@ def main(
     print(f"\n[OK] Zapisano model:  {model_path}")
     print(f"[OK] Zapisano schema: {schema_path}")
 
+    ui_meta_path = os.path.join(model_dir, "ui_metadata.joblib")
+    joblib.dump(ui_metadata, ui_meta_path)
+    print(f"[OK] Zapisano UI metadata: {ui_meta_path}")
 
 if __name__ == "__main__":
     main()
