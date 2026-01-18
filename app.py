@@ -3,27 +3,143 @@ import joblib
 import pandas as pd
 import streamlit as st
 
+
 # =========================
 # KONFIG
 # =========================
 MODEL_PATH = os.getenv("MODEL_PATH", "models/catboost_price.joblib")
 SCHEMA_PATH = os.getenv("SCHEMA_PATH", "models/feature_schema.joblib")
 
-st.set_page_config(page_title="Wycena samochodu (ML)", layout="wide")
-st.title("Wycena samochodu (ML)")
 
-st.write(
-    """
-Wpisujesz dane auta, klikasz i dostajesz wycenę.
-To estymacja na podstawie danych ogłoszeniowych (model regresyjny), a nie wróżenie z fusów.
-"""
-)
+def fmt_pln(x: float) -> str:
+    return f"{x:,.0f}".replace(",", " ")
+
+
+st.set_page_config(page_title="Profesjonalna wycena samochodu", layout="wide")
+st.markdown("""
+<style>
+:root{
+  --bg: #F6F7FB;
+  --card: #FFFFFF;
+  --text: #0F172A;
+  --muted: #475569;
+  --border: #D7DDEA;
+
+  --blue: #004D98;
+  --maroon: #A50044;
+  --gold: #D4AF37;
+
+  --shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+}
+
+.stApp { background: var(--bg); color: var(--text); }
+.block-container { padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1100px; }
+
+h1, h2, h3 { color: var(--text); }
+.subtitle { color: var(--muted); font-size: 0.98rem; margin-bottom: 1.2rem; }
+
+/* Sekcje jako karty */
+.section{
+  padding: 0.95rem 1.0rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  margin-bottom: 0.9rem;
+}
+
+/* Tytuł sekcji z akcentem */
+.section-title{
+  font-weight: 900;
+  margin-bottom: 0.6rem;
+  font-size: 1.02rem;
+  color: var(--blue);
+}
+.section-title::after{
+  display: none;
+  content: none;
+}
+
+
+/* Wynik */
+.result-card{
+  padding: 1.0rem 1.0rem;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  margin-top: 1.0rem;
+}
+.result-label{ color: var(--muted); font-size: 0.95rem; margin-bottom: 0.25rem; }
+.result-range{
+  font-size: 1.85rem;
+  font-weight: 950;
+  line-height: 1.15;
+  color: var(--maroon);
+}
+.result-note{ color: var(--muted); font-size: 0.92rem; margin-top: 0.5rem; }
+
+/* Podkreślenia i drobne akcenty */
+a, a:visited { color: var(--blue); }
+hr { border-color: var(--border); }
+
+/* Przycisk primary: gradient Barca + złoty delikatny highlight */
+button[kind="primary"]{
+  background: linear-gradient(90deg, var(--blue), var(--maroon)) !important;
+  color: white !important;
+  border-radius: 12px !important;
+  padding: 0.65rem 0.95rem !important;
+  font-weight: 900 !important;
+  border: 1px solid rgba(0,0,0,0) !important;
+  box-shadow: 0 6px 18px rgba(0, 77, 152, 0.20);
+}
+button[kind="primary"]:hover{
+  filter: brightness(0.97);
+}
+
+/* Dodatkowy przycisk secondary (jeśli kiedyś dodasz) */
+button[kind="secondary"]{
+  border-radius: 12px !important;
+  padding: 0.65rem 0.95rem !important;
+  font-weight: 800 !important;
+}
+
+/* Streamlit elementy */
+div[data-testid="stForm"] { border: none; padding: 0; }
+div[data-testid="stHorizontalBlock"] { gap: 0.8rem; }
+
+/* Poprawa czytelności captionów */
+.stCaption { color: var(--muted) !important; }
+
+/* Złoty akcent dla wybranych elementów (np. możesz użyć w markdown) */
+.gold-badge{
+  display:inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.55);
+  background: rgba(212, 175, 55, 0.10);
+  color: #6B4E00;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+/* Kontenery Streamlit z border=True */
+div[data-testid="stVerticalBlockBorderWrapper"]{
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 16px !important;
+  padding: 0.95rem 1rem !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("Wycena samochodu (ML)")
+st.markdown('<div class="subtitle">Estymacja cen samochodu na podstawie danych z otomoto.pl (2020). Wynik prezentowany jako widełki ±10%.</div>', unsafe_allow_html=True)
 
 # =========================
 # OPCJA B: listy kategorii w kodzie (bez CSV)
-# Wartości poniżej są dopasowane do tego, co występuje w Car_sale_ads_cleaned_v2.csv
 # =========================
-
 CATEGORICAL_OPTIONS = {
     "Offer_location": [
         "dolnośląskie", "kujawsko-pomorskie", "lubelskie", "lubuskie",
@@ -57,7 +173,6 @@ CATEGORICAL_OPTIONS = {
     "First_owner": ["Yes", "Brak danych"],
 }
 
-# Top marki z danych (żeby user nie musiał wpisywać „Citroën” z palca)
 TOP_BRANDS = [
     "Volkswagen", "BMW", "Audi", "Opel", "Ford", "Mercedes-Benz", "Renault",
     "Toyota", "Škoda", "Peugeot", "Citroën", "Volvo", "Kia", "Hyundai",
@@ -68,7 +183,6 @@ TOP_BRANDS = [
     "Maserati", "Cadillac",
 ]
 
-# Top modele per top marka (z danych). Jeśli marka nie jest na liście -> wpis ręczny.
 BRAND_TO_MODELS = {
     "Volkswagen": [
         "Golf", "Passat", "Polo", "Tiguan", "Touran", "Caddy", "Golf Plus",
@@ -202,9 +316,6 @@ def load_model_and_schema():
 
 
 def build_features_row(user_input: dict, schema: dict) -> pd.DataFrame:
-    """
-    Buduje jeden wiersz cech w kolejności i typach jak w treningu.
-    """
     cols = schema["feature_columns"]
     cat_cols = set(schema.get("cat_cols", []))
     num_cols = set(schema.get("num_cols", []))
@@ -234,10 +345,6 @@ def clean_choice(v: str) -> str:
 
 
 def select_or_manual(label: str, options: list[str], key: str, default_index: int = 0):
-    """
-    Selectbox + opcja 'Inne (wpisz ręcznie)'.
-    Zwraca finalny string.
-    """
     if not options:
         return st.text_input(label, key=f"{key}_manual")
 
@@ -247,81 +354,168 @@ def select_or_manual(label: str, options: list[str], key: str, default_index: in
         return st.text_input("Wpisz wartość:", key=f"{key}_manual")
     return picked
 
+def clear_model_state():
+    # czyści wszystko co dotyczy modelu, żeby nie trzymało starego wyboru
+    for k in list(st.session_state.keys()):
+        if k.startswith("model_") or k.startswith("model_manual"):
+            del st.session_state[k]
+
 
 # =========================
 # START
 # =========================
-model_ok = True
 try:
     model, schema = load_model_and_schema()
 except FileNotFoundError:
-    model_ok = False
     st.error(
         f"Brak plików modelu.\n\n"
         f"- {MODEL_PATH}\n"
         f"- {SCHEMA_PATH}\n\n"
         f"Najpierw wytrenuj model (train_model.py) i wrzuć pliki do katalogu models/."
     )
-
-if not model_ok:
     st.stop()
-
 st.markdown("## Formularz wyceny")
 
-c1, c2, c3 = st.columns(3)
+# =========================
+# PODSTAWOWE INFORMACJE (POZA FORM - MUSI RERUNOWAĆ)
+# =========================
+with st.container(border=True):
+    st.markdown('<div class="section-title">Podstawowe informacje</div>', unsafe_allow_html=True)
+    a1, a2, a3 = st.columns(3)
 
-with c1:
-    brand = select_or_manual("Marka (Vehicle_brand):", TOP_BRANDS, key="brand", default_index=0)
+    with a1:
+        # Marka z możliwością ręcznego wpisu + reset modelu na zmianę
+        brand_opts = TOP_BRANDS + ["Inne (wpisz ręcznie)"]
+        picked_brand = st.selectbox(
+            "Marka (Vehicle_brand)",
+            brand_opts,
+            key="brand",
+            index=0,
+            on_change=clear_model_state,
+        )
+        if picked_brand == "Inne (wpisz ręcznie)":
+            brand = st.text_input("Wpisz markę:", key="brand_manual", on_change=clear_model_state)
+        else:
+            brand = picked_brand
 
-with c2:
-    model_options = BRAND_TO_MODELS.get(brand, [])
-    vehicle_model = select_or_manual("Model (Vehicle_model):", model_options, key="model", default_index=0)
+    with a2:
+        model_options = BRAND_TO_MODELS.get(brand, [])
 
-with c3:
-    car_type = select_or_manual("Typ nadwozia (Type):", CATEGORICAL_OPTIONS["Type"], key="type", default_index=0)
+        if model_options:
+            model_opts = model_options + ["Inne (wpisz ręcznie)"]
+            picked_model = st.selectbox(
+                "Model (Vehicle_model)",
+                model_opts,
+                key=f"model_{brand}",  # key zależny od marki
+                index=0
+            )
+            if picked_model == "Inne (wpisz ręcznie)":
+                vehicle_model = st.text_input("Wpisz model:", key=f"model_manual_{brand}")
+            else:
+                vehicle_model = picked_model
+        else:
+            # marka spoza mapy -> ręczny model
+            vehicle_model = st.text_input("Model (Vehicle_model)", key=f"model_manual_{brand}")
 
-st.markdown("---")
+    with a3:
+        car_type = st.selectbox(
+            "Typ nadwozia (Type)",
+            CATEGORICAL_OPTIONS["Type"] + ["Inne (wpisz ręcznie)"],
+            key="type",
+            index=0
+        )
+        if car_type == "Inne (wpisz ręcznie)":
+            car_type = st.text_input("Wpisz typ:", key="type_manual")
 
+    st.write("")  # odstęp
 with st.form("valuation_form"):
-    left, right = st.columns(2)
+    # =========================
+    # PARAMETRY LICZBOWE
+    # =========================
+    with st.container(border=True):
+        st.markdown('<div class="section-title">Parametry liczbowe</div>', unsafe_allow_html=True)
 
-    with left:
-        year = st.number_input("Rok produkcji (Production_year):", min_value=1950, max_value=2030, value=2015, step=1)
-        mileage = st.number_input("Przebieg [km] (Mileage_km):", min_value=0, max_value=2_000_000, value=150_000, step=1000)
+        b1, b2, b3, b4 = st.columns(4)
+        with b1:
+            year = st.number_input("Rok produkcji", min_value=1950, max_value=2030, value=2015, step=1)
+        with b2:
+            mileage = st.number_input("Przebieg [km]", min_value=0, max_value=2_000_000, value=150_000, step=1000)
+        with b3:
+            power = st.number_input("Moc [KM]", min_value=0, max_value=1200, value=120, step=10)
+        with b4:
+            displacement = st.number_input("Pojemność [cm³]", min_value=0, max_value=10_000, value=1600, step=100)
 
-    with right:
-        power = st.number_input("Moc [KM] (Power_HP):", min_value=0, max_value=1200, value=120, step=10)
-        displacement = st.number_input("Pojemność [cm³] (Displacement_cm3):", min_value=0, max_value=10_000, value=1600, step=100)
+    st.write("")
 
-    c4, c5, c6 = st.columns(3)
+    # =========================
+    # DODATKOWE DANE
+    # =========================
+    with st.container(border=True):
+        st.markdown('<div class="section-title">Dodatkowe dane</div>', unsafe_allow_html=True)
 
-    with c4:
-        fuel = select_or_manual("Rodzaj paliwa (Fuel_type):", CATEGORICAL_OPTIONS["Fuel_type"], key="fuel", default_index=0)
-        drive = select_or_manual("Napęd (Drive):", CATEGORICAL_OPTIONS["Drive"], key="drive", default_index=0)
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            fuel = select_or_manual("Paliwo (Fuel_type)", CATEGORICAL_OPTIONS["Fuel_type"], key="fuel", default_index=0)
+            drive = select_or_manual("Napęd (Drive)", CATEGORICAL_OPTIONS["Drive"], key="drive", default_index=0)
 
-    with c5:
-        transmission = select_or_manual("Skrzynia biegów (Transmission):", CATEGORICAL_OPTIONS["Transmission"], key="trans", default_index=0)
-        doors_number = st.number_input("Liczba drzwi (Doors_number):", min_value=0, max_value=10, value=5, step=1)
+        with c2:
+            transmission = select_or_manual("Skrzynia biegów (Transmission)", CATEGORICAL_OPTIONS["Transmission"], key="trans", default_index=0)
+            doors_number = st.number_input("Liczba drzwi (Doors_number)", min_value=0, max_value=10, value=5, step=1)
 
-    with c6:
-        colour = select_or_manual("Kolor (Colour):", CATEGORICAL_OPTIONS["Colour"], key="colour", default_index=0)
-        condition = select_or_manual("Stan (Condition):", CATEGORICAL_OPTIONS["Condition"], key="cond", default_index=1)  # default Used
+        with c3:
+            colour = select_or_manual("Kolor (Colour)", CATEGORICAL_OPTIONS["Colour"], key="colour", default_index=0)
+            condition = select_or_manual("Stan (Condition)", CATEGORICAL_OPTIONS["Condition"], key="cond", default_index=1)
 
-    c7, c8, c9 = st.columns(3)
+    st.write("")
 
-    with c7:
-        origin_country = select_or_manual("Kraj pochodzenia (Origin_country):", CATEGORICAL_OPTIONS["Origin_country"], key="origin", default_index=0)
-        first_owner = select_or_manual("Pierwszy właściciel (First_owner):", CATEGORICAL_OPTIONS["First_owner"], key="first_owner", default_index=0)
+    # =========================
+    # POCHODZENIE I LOKALIZACJA
+    # =========================
+    with st.container(border=True):
+        st.markdown('<div class="section-title">Pochodzenie i lokalizacja</div>', unsafe_allow_html=True)
 
-    with c8:
-        location = select_or_manual("Województwo (Offer_location):", CATEGORICAL_OPTIONS["Offer_location"], key="loc", default_index=0)
+        d1, d2, d3 = st.columns(3)
 
-    with c9:
-        st.caption("Cena nie jest potrzebna do wyceny. To target w danych treningowych.")
-        _ = st.text_input("Uwagi (opcjonalnie, nie wpływa na model):", value="")
+        with d1:
+            origin_country = select_or_manual(
+                "Kraj pochodzenia (Origin_country)",
+                CATEGORICAL_OPTIONS["Origin_country"],
+                key="origin",
+                default_index=0
+            )
+            first_owner = select_or_manual(
+                "Pierwszy właściciel (First_owner)",
+                CATEGORICAL_OPTIONS["First_owner"],
+                key="first_owner",
+                default_index=0
+            )
 
-    submitted = st.form_submit_button("Wyceń")
+        with d2:
+            location = select_or_manual(
+                "Województwo (Offer_location)",
+                CATEGORICAL_OPTIONS["Offer_location"],
+                key="loc",
+                default_index=0
+            )
 
+        with d3:
+            st.caption("Cena nie jest potrzebna do wyceny (to target w danych treningowych).")
+            note = st.text_input("Uwagi (opcjonalnie)", value="")
+
+    st.write("")
+
+    # =========================
+    # SUBMIT
+    # =========================
+    submit_col1, submit_col2 = st.columns([1, 2])
+    with submit_col1:
+        submitted = st.form_submit_button("Wyceń", type="primary")
+    with submit_col2:
+        st.caption("Wynik pokazujemy jako widełki ±10% od estymacji modelu.")
+
+# =========================
+# WYNIK
+# =========================
 if submitted:
     user_input = {
         "Condition": clean_choice(condition),
@@ -342,14 +536,30 @@ if submitted:
         "Offer_location": clean_choice(location),
     }
 
-    X_one = build_features_row(user_input, schema)
-    pred = float(model.predict(X_one)[0])
+    with st.spinner("Liczymy wycenę..."):
+        X_one = build_features_row(user_input, schema)
+        pred = float(model.predict(X_one)[0])
 
-    st.success("Wycena gotowa.")
-    st.metric("Szacowana cena [PLN]", f"{pred:,.0f}".replace(",", " "))
+    low = pred * 0.9
+    high = pred * 1.1
 
-    with st.expander("Pokaż dane wejściowe"):
+    st.markdown(
+        f"""
+        <div class="result-card">
+            <div class="result-label">Szacowany przedział ceny (±10%)</div>
+            <div class="result-range">{fmt_pln(low)} – {fmt_pln(high)} PLN</div>
+            <div class="result-note">
+                To estymacja na podstawie ogłoszeń. Realna cena zależy m.in. od stanu, wersji wyposażenia, historii serwisowej i popytu lokalnego.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    tabs = st.tabs(["Podsumowanie danych", "Wiersz cech do modelu", "Notatka"])
+    with tabs[0]:
         st.json(user_input)
-
-    with st.expander("Pokaż wiersz cech przekazany do modelu"):
-        st.dataframe(X_one)
+    with tabs[1]:
+        st.dataframe(X_one, use_container_width=True)
+    with tabs[2]:
+        st.write(note if note else "Brak uwag.")
