@@ -4,10 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="77fc5412-53dd-40d5-965b-921404e1db06" name="Changes" comment="joblib added">
-      <change afterPath="$PROJECT_DIR$/.streamlit/config.toml" afterDir="false" />
+    <list default="true" id="77fc5412-53dd-40d5-965b-921404e1db06" name="Changes" comment="new styles">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -152,7 +150,8 @@
       <updated>1768601015197</updated>
       <workItem from="1768601022168" duration="5940000" />
       <workItem from="1768652285140" duration="4956000" />
-      <workItem from="1768752913437" duration="3946000" />
+      <workItem from="1768752913437" duration="4344000" />
+      <workItem from="1768834553449" duration="642000" />
     </task>
     <task id="LOCAL-00001" summary="initial commit">
       <option name="closed" value="true" />
@@ -210,7 +209,15 @@
       <option name="project" value="LOCAL" />
       <updated>1768654535868</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="new styles">
+      <option name="closed" value="true" />
+      <created>1768757502634</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1768757502634</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -247,7 +254,8 @@
     <MESSAGE value="csv" />
     <MESSAGE value="no csv needed" />
     <MESSAGE value="joblib added" />
-    <option name="LAST_COMMIT_MESSAGE" value="joblib added" />
+    <MESSAGE value="new styles" />
+    <option name="LAST_COMMIT_MESSAGE" value="new styles" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

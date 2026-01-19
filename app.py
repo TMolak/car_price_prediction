@@ -2,11 +2,9 @@ import os
 import joblib
 import pandas as pd
 import streamlit as st
+import numpy as np
 
-
-# =========================
 # KONFIG
-# =========================
 MODEL_PATH = os.getenv("MODEL_PATH", "models/catboost_price.joblib")
 SCHEMA_PATH = os.getenv("SCHEMA_PATH", "models/feature_schema.joblib")
 
@@ -79,11 +77,10 @@ h1, h2, h3 { color: var(--text); }
 }
 .result-note{ color: var(--muted); font-size: 0.92rem; margin-top: 0.5rem; }
 
-/* Podkreślenia i drobne akcenty */
 a, a:visited { color: var(--blue); }
 hr { border-color: var(--border); }
 
-/* Przycisk primary: gradient Barca + złoty delikatny highlight */
+/* Przycisk primary */
 button[kind="primary"]{
   background: linear-gradient(90deg, var(--blue), var(--maroon)) !important;
   color: white !important;
@@ -97,7 +94,6 @@ button[kind="primary"]:hover{
   filter: brightness(0.97);
 }
 
-/* Dodatkowy przycisk secondary (jeśli kiedyś dodasz) */
 button[kind="secondary"]{
   border-radius: 12px !important;
   padding: 0.65rem 0.95rem !important;
@@ -111,7 +107,6 @@ div[data-testid="stHorizontalBlock"] { gap: 0.8rem; }
 /* Poprawa czytelności captionów */
 .stCaption { color: var(--muted) !important; }
 
-/* Złoty akcent dla wybranych elementów (np. możesz użyć w markdown) */
 .gold-badge{
   display:inline-block;
   padding: 0.15rem 0.5rem;
@@ -135,11 +130,8 @@ div[data-testid="stVerticalBlockBorderWrapper"]{
 """, unsafe_allow_html=True)
 
 st.title("Wycena samochodu (ML)")
-st.markdown('<div class="subtitle">Estymacja cen samochodu na podstawie danych z otomoto.pl (2020). Wynik prezentowany jako widełki ±10%.</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Estymacja cen samochodu na podstawie danych z otomoto.pl (2021). Wynik prezentowany jako widełki +-10%.</div>', unsafe_allow_html=True)
 
-# =========================
-# OPCJA B: listy kategorii w kodzie (bez CSV)
-# =========================
 CATEGORICAL_OPTIONS = {
     "Offer_location": [
         "dolnośląskie", "kujawsko-pomorskie", "lubelskie", "lubuskie",
@@ -305,9 +297,7 @@ BRAND_TO_MODELS = {
 }
 
 
-# =========================
 # ŁADOWANIE MODELU + SCHEMATU
-# =========================
 @st.cache_resource
 def load_model_and_schema():
     model = joblib.load(MODEL_PATH)
@@ -355,15 +345,12 @@ def select_or_manual(label: str, options: list[str], key: str, default_index: in
     return picked
 
 def clear_model_state():
-    # czyści wszystko co dotyczy modelu, żeby nie trzymało starego wyboru
     for k in list(st.session_state.keys()):
         if k.startswith("model_") or k.startswith("model_manual"):
             del st.session_state[k]
 
 
-# =========================
 # START
-# =========================
 try:
     model, schema = load_model_and_schema()
 except FileNotFoundError:
@@ -371,20 +358,17 @@ except FileNotFoundError:
         f"Brak plików modelu.\n\n"
         f"- {MODEL_PATH}\n"
         f"- {SCHEMA_PATH}\n\n"
-        f"Najpierw wytrenuj model (train_model.py) i wrzuć pliki do katalogu models/."
+        f"Najpierw wytrenuj model i wrzuć pliki do katalogu models/."
     )
     st.stop()
 st.markdown("## Formularz wyceny")
 
-# =========================
-# PODSTAWOWE INFORMACJE (POZA FORM - MUSI RERUNOWAĆ)
-# =========================
+# PODSTAWOWE INFORMACJE
 with st.container(border=True):
     st.markdown('<div class="section-title">Podstawowe informacje</div>', unsafe_allow_html=True)
     a1, a2, a3 = st.columns(3)
 
     with a1:
-        # Marka z możliwością ręcznego wpisu + reset modelu na zmianę
         brand_opts = TOP_BRANDS + ["Inne (wpisz ręcznie)"]
         picked_brand = st.selectbox(
             "Marka (Vehicle_brand)",
@@ -406,7 +390,7 @@ with st.container(border=True):
             picked_model = st.selectbox(
                 "Model (Vehicle_model)",
                 model_opts,
-                key=f"model_{brand}",  # key zależny od marki
+                key=f"model_{brand}",
                 index=0
             )
             if picked_model == "Inne (wpisz ręcznie)":
@@ -414,7 +398,6 @@ with st.container(border=True):
             else:
                 vehicle_model = picked_model
         else:
-            # marka spoza mapy -> ręczny model
             vehicle_model = st.text_input("Model (Vehicle_model)", key=f"model_manual_{brand}")
 
     with a3:
@@ -429,17 +412,15 @@ with st.container(border=True):
 
     st.write("")  # odstęp
 with st.form("valuation_form"):
-    # =========================
     # PARAMETRY LICZBOWE
-    # =========================
     with st.container(border=True):
         st.markdown('<div class="section-title">Parametry liczbowe</div>', unsafe_allow_html=True)
 
         b1, b2, b3, b4 = st.columns(4)
         with b1:
-            year = st.number_input("Rok produkcji", min_value=1950, max_value=2030, value=2015, step=1)
+            year = st.number_input("Rok produkcji", min_value=1915, max_value=2021, value=2006, step=1)
         with b2:
-            mileage = st.number_input("Przebieg [km]", min_value=0, max_value=2_000_000, value=150_000, step=1000)
+            mileage = st.number_input("Przebieg [km]", min_value=0, max_value=2_000_000, value=200_000, step=1000)
         with b3:
             power = st.number_input("Moc [KM]", min_value=0, max_value=1200, value=120, step=10)
         with b4:
@@ -447,9 +428,7 @@ with st.form("valuation_form"):
 
     st.write("")
 
-    # =========================
     # DODATKOWE DANE
-    # =========================
     with st.container(border=True):
         st.markdown('<div class="section-title">Dodatkowe dane</div>', unsafe_allow_html=True)
 
@@ -468,9 +447,7 @@ with st.form("valuation_form"):
 
     st.write("")
 
-    # =========================
     # POCHODZENIE I LOKALIZACJA
-    # =========================
     with st.container(border=True):
         st.markdown('<div class="section-title">Pochodzenie i lokalizacja</div>', unsafe_allow_html=True)
 
@@ -504,18 +481,14 @@ with st.form("valuation_form"):
 
     st.write("")
 
-    # =========================
     # SUBMIT
-    # =========================
     submit_col1, submit_col2 = st.columns([1, 2])
     with submit_col1:
         submitted = st.form_submit_button("Wyceń", type="primary")
     with submit_col2:
         st.caption("Wynik pokazujemy jako widełki ±10% od estymacji modelu.")
 
-# =========================
 # WYNIK
-# =========================
 if submitted:
     user_input = {
         "Condition": clean_choice(condition),
@@ -540,6 +513,9 @@ if submitted:
         X_one = build_features_row(user_input, schema)
         pred = float(model.predict(X_one)[0])
 
+        if schema.get("use_log_target", False):
+            pred = float(np.expm1(pred))
+
     low = pred * 0.9
     high = pred * 1.1
 
@@ -549,7 +525,7 @@ if submitted:
             <div class="result-label">Szacowany przedział ceny (±10%)</div>
             <div class="result-range">{fmt_pln(low)} – {fmt_pln(high)} PLN</div>
             <div class="result-note">
-                To estymacja na podstawie ogłoszeń. Realna cena zależy m.in. od stanu, wersji wyposażenia, historii serwisowej i popytu lokalnego.
+                To estymacja na podstawie ogłoszeń z 2021 roku. Realna cena zależy m.in. od stanu, wersji wyposażenia, historii serwisowej i popytu lokalnego.
             </div>
         </div>
         """,
